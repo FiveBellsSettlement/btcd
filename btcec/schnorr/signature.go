@@ -232,7 +232,7 @@ func (sig *Signature) Verify(hash []byte, pubKey *btcec.PublicKey) bool {
 
 // zeroArray zeroes the memory of a scalar array.
 func zeroArray(a *[scalarSize]byte) {
-	for i := 0; i < scalarSize; i++ {
+	for i := range a {
 		a[i] = 0x00
 	}
 }

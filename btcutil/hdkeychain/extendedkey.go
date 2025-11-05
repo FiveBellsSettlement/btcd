@@ -619,8 +619,7 @@ func (k *ExtendedKey) SetNet(net *chaincfg.Params) {
 // zero sets all bytes in the passed slice to zero.  This is used to
 // explicitly clear private key material from memory.
 func zero(b []byte) {
-	lenb := len(b)
-	for i := 0; i < lenb; i++ {
+	for i := range b {
 		b[i] = 0
 	}
 }
