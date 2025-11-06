@@ -1045,6 +1045,40 @@ func (c *Client) SendCmd(cmd interface{}) chan *Response {
 	return responseChan
 }
 
+// TODO: factor out common code
+func SendCmd[T any](c *Client, cmd T) chan *Response {
+	rpcVersion := btcjson.RpcVersion1
+	if c.batch {
+		rpcVersion = btcjson.RpcVersion2
+	}
+	// Get the method associated with the command.
+	method, err := btcjson.CmdMethodGeneric[T]()
+	if err != nil {
+		return newFutureError(err)
+	}
+
+	// Marshal the command.
+	id := c.NextID()
+	marshalledJSON, err := btcjson.MarshalCmd(rpcVersion, id, cmd)
+	if err != nil {
+		return newFutureError(err)
+	}
+
+	// Generate the request and send it along with a channel to respond on.
+	responseChan := make(chan *Response, 1)
+	jReq := &jsonRequest{
+		id:             id,
+		method:         method,
+		cmd:            cmd,
+		marshalledJSON: marshalledJSON,
+		responseChan:   responseChan,
+	}
+
+	c.sendRequest(jReq)
+
+	return responseChan
+}
+
 // sendCmdAndWait sends the passed command to the associated server, waits
 // for the reply, and returns the result from it.  It will return the error
 // field in the reply if there is one.

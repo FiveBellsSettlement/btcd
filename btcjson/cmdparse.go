@@ -66,6 +66,36 @@ func MarshalCmd(rpcVersion RPCVersion, id interface{}, cmd interface{}) ([]byte,
 	}
 	return json.Marshal(rawCmd)
 }
+func MarshalCmdGeneric[T any](rpcVersion RPCVersion, cmd T) ([]byte, error) {
+	// Look up the cmd type and error out if not registered.
+	rt := reflect.TypeFor[T]()
+	registerLock.RLock()
+	method, ok := concreteTypeToMethod[rt]
+	registerLock.RUnlock()
+	if !ok {
+		str := fmt.Sprintf("%q is not registered", method)
+		return nil, makeError(ErrUnregisteredMethod, str)
+	}
+
+	// The provided command must not be nil.
+	rv := reflect.ValueOf(cmd)
+	if rv.IsNil() {
+		str := "the specified command is nil"
+		return nil, makeError(ErrInvalidType, str)
+	}
+
+	// Create a slice of interface values in the order of the struct fields
+	// while respecting pointer fields as optional params and only adding
+	// them if they are non-nil.
+	params := makeParams(rt.Elem(), rv.Elem())
+
+	// Generate and marshal the final JSON-RPC request.
+	rawCmd, err := NewRequest(rpcVersion, id, method, params)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(rawCmd)
+}
 
 // checkNumParams ensures the supplied number of params is at least the minimum
 // required number for the command and less than the maximum allowed.

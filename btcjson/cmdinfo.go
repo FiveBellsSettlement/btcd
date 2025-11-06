@@ -27,6 +27,20 @@ func CmdMethod(cmd interface{}) (string, error) {
 	return method, nil
 }
 
+func CmdMethodGeneric[T any]() (string, error) {
+	// Look up the cmd type and error out if not registered.
+	rt := reflect.TypeFor[T]()
+	registerLock.RLock()
+	method, ok := concreteTypeToMethod[rt]
+	registerLock.RUnlock()
+	if !ok {
+		str := fmt.Sprintf("%q is not registered", method)
+		return "", makeError(ErrUnregisteredMethod, str)
+	}
+
+	return method, nil
+}
+
 // MethodUsageFlags returns the usage flags for the passed command method.  The
 // provided method must be associated with a registered type.  All commands
 // provided by this package are registered by default.
