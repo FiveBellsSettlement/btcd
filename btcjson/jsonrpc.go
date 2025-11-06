@@ -67,6 +67,12 @@ func NewRPCError(code RPCErrorCode, message string) *RPCError {
 	}
 }
 
+type ID interface {
+	int | int8 | int16 | int32 | int64 |
+		uint | uint8 | uint16 | uint32 | uint64 |
+		float32 | float64 | string
+}
+
 // IsValidIDType checks that the ID field (which can go in any of the JSON-RPC
 // requests, responses, or notifications) is valid.  JSON-RPC 1.0 allows any
 // valid JSON type.  JSON-RPC 2.0 (which bitcoind follows for some parts) only
@@ -155,18 +161,13 @@ func (request *Request) UnmarshalJSON(b []byte) error {
 // concrete command type with the NewCmd or New<Foo>Cmd functions and call the
 // MarshalCmd function with that command to generate the marshalled JSON-RPC
 // request.
-func NewRequest(rpcVersion RPCVersion, id interface{}, method string, params []interface{}) (*Request, error) {
+func NewRequest[t ID](rpcVersion RPCVersion, id *t, method string, params []interface{}) (*Request, error) {
 	// default to JSON-RPC 1.0 if RPC type is not specified
 	if rpcVersion == "" {
 		rpcVersion = RpcVersion1
 	}
 	if !rpcVersion.IsValid() {
 		str := fmt.Sprintf("rpcversion '%s' is invalid", rpcVersion)
-		return nil, makeError(ErrInvalidType, str)
-	}
-
-	if !IsValidIDType(id) {
-		str := fmt.Sprintf("the id of type '%T' is invalid", id)
 		return nil, makeError(ErrInvalidType, str)
 	}
 
@@ -180,9 +181,14 @@ func NewRequest(rpcVersion RPCVersion, id interface{}, method string, params []i
 		rawParams = append(rawParams, rawMessage)
 	}
 
+	var reqId interface{}
+	if id != nil {
+		reqId = *id
+	}
+
 	return &Request{
 		Jsonrpc: rpcVersion,
-		ID:      id,
+		ID:      reqId,
 		Method:  method,
 		Params:  rawParams,
 	}, nil
@@ -204,14 +210,9 @@ type Response struct {
 // provided in case the caller wants to construct raw responses for some reason.
 // Typically callers will instead want to create the fully marshalled JSON-RPC
 // response to send over the wire with the MarshalResponse function.
-func NewResponse(rpcVersion RPCVersion, id interface{}, marshalledResult []byte, rpcErr *RPCError) (*Response, error) {
+func NewResponse[t ID](rpcVersion RPCVersion, id t, marshalledResult []byte, rpcErr *RPCError) (*Response, error) {
 	if !rpcVersion.IsValid() {
 		str := fmt.Sprintf("rpcversion '%s' is invalid", rpcVersion)
-		return nil, makeError(ErrInvalidType, str)
-	}
-
-	if !IsValidIDType(id) {
-		str := fmt.Sprintf("the id of type '%T' is invalid", id)
 		return nil, makeError(ErrInvalidType, str)
 	}
 
